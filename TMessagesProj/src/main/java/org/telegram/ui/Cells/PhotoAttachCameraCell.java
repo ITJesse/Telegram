@@ -79,12 +79,12 @@ public class PhotoAttachCameraCell extends FrameLayout {
 
     public void updateBitmap() {
         Bitmap bitmap = null;
-        try {
-            File file = new File(ApplicationLoader.getFilesDirFixed(), "cthumb.jpg");
-            bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-        } catch (Throwable ignore) {
-
-        }
+//        try {
+//            File file = new File(ApplicationLoader.getFilesDirFixed(), "cthumb.jpg");
+//            bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+//        } catch (Throwable ignore) {
+//
+//        }
         if (bitmap != null) {
             backgroundView.setImageBitmap(bitmap);
         } else {
