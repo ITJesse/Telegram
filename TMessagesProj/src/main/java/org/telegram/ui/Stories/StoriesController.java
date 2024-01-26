@@ -233,20 +233,21 @@ public class StoriesController {
     }
 
     public boolean hasStories(long dialogId) {
-        if (dialogId == 0) {
-            return false;
-        }
-        if (hasUploadingStories(dialogId)) {
-            return true;
-        }
-        if (isLastUploadingFailed(dialogId)) {
-            return true;
-        }
-        TL_stories.PeerStories stories = allStoriesMap.get(dialogId);
-        if (stories == null) {
-            stories = getStoriesFromFullPeer(dialogId);
-        }
-        return stories != null && !stories.stories.isEmpty();
+        return false;
+//        if (dialogId == 0) {
+//            return false;
+//        }
+//        if (hasUploadingStories(dialogId)) {
+//            return true;
+//        }
+//        if (isLastUploadingFailed(dialogId)) {
+//            return true;
+//        }
+//        TL_stories.PeerStories stories = allStoriesMap.get(dialogId);
+//        if (stories == null) {
+//            stories = getStoriesFromFullPeer(dialogId);
+//        }
+//        return stories != null && !stories.stories.isEmpty();
     }
 
     public TL_stories.PeerStories getStoriesFromFullPeer(long dialogId) {
@@ -260,27 +261,28 @@ public class StoriesController {
     }
 
     public boolean hasStories() {
-        return (dialogListStories != null && dialogListStories.size() > 0) || hasSelfStories();
+        return false;
+//        return (dialogListStories != null && dialogListStories.size() > 0) || hasSelfStories();
     }
 
     public void loadStories() {
-        if (firstLoad) {
-            loadingFromDatabase = true;
-            storiesStorage.getAllStories(allStories -> {
-                loadingFromDatabase = false;
-                if (allStories != null) {
-                    processAllStoriesResponse(allStories, false, true, false);
-                    loadFromServer(false);
-                    loadFromServer(true);
-                } else {
-                    cleanup();
-                    loadStories();
-                }
-            });
-        } else {
-            loadFromServer(false);
-            loadFromServer(true);
-        }
+//        if (firstLoad) {
+//            loadingFromDatabase = true;
+//            storiesStorage.getAllStories(allStories -> {
+//                loadingFromDatabase = false;
+//                if (allStories != null) {
+//                    processAllStoriesResponse(allStories, false, true, false);
+//                    loadFromServer(false);
+//                    loadFromServer(true);
+//                } else {
+//                    cleanup();
+//                    loadStories();
+//                }
+//            });
+//        } else {
+//            loadFromServer(false);
+//            loadFromServer(true);
+//        }
         firstLoad = false;
     }
 
