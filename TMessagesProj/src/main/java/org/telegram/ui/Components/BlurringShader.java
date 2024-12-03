@@ -1,12 +1,9 @@
 package org.telegram.ui.Components;
 
-import static org.telegram.messenger.AndroidUtilities.dp;
-
 import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
@@ -23,7 +20,6 @@ import android.graphics.drawable.Drawable;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -166,8 +162,8 @@ public class BlurringShader {
         uvBuffer.put(texCoords);
         uvBuffer.position(0);
 
-        String vertexShaderSource = RLottieDrawable.readRes(null, R.raw.blur_vrt);
-        String fragmentShaderSource = RLottieDrawable.readRes(null, R.raw.blur_frg);
+        String vertexShaderSource = AndroidUtilities.readRes(R.raw.blur_vrt);
+        String fragmentShaderSource = AndroidUtilities.readRes(R.raw.blur_frg);
         if (vertexShaderSource == null || fragmentShaderSource == null) {
             return false;
         }
@@ -651,7 +647,9 @@ public class BlurringShader {
                 }
                 canvas.rotate(orientation);
                 canvas.translate(-padding - width / 2f, -padding - height / 2f);
-                canvas.drawBitmap(bitmap, src, dst, null);
+                try {
+                    canvas.drawBitmap(bitmap, src, dst, null);
+                } catch (Exception e) {}
                 Utilities.stackBlurBitmap(resultBitmap, 6);
                 if (padding > 0) {
                     // clear borders
@@ -983,6 +981,7 @@ public class BlurringShader {
 
                 float alpha = 1f;
                 private final Paint dimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                private final Rect rect = new Rect();
 
                 @Nullable
                 private Paint getPaint() {
@@ -1012,7 +1011,6 @@ public class BlurringShader {
                 @Override
                 public void draw(@NonNull Canvas canvas) {
                     Paint paint = getPaint();
-
                     Rect bounds = getBounds();
                     if (paint != null) {
                         if (base != null) {
@@ -1021,12 +1019,12 @@ public class BlurringShader {
                             base.draw(canvas);
                             canvas.drawRect(bounds, paint);
                             canvas.restore();
-                            getPadding(AndroidUtilities.rectTmp2);
+                            getPadding(rect);
                             AndroidUtilities.rectTmp.set(
-                                bounds.left + AndroidUtilities.rectTmp2.left,
-                                bounds.top + AndroidUtilities.rectTmp2.top,
-                                bounds.right - AndroidUtilities.rectTmp2.right,
-                                bounds.bottom - AndroidUtilities.rectTmp2.bottom
+                                bounds.left + rect.left,
+                                bounds.top + rect.top,
+                                bounds.right - rect.right,
+                                bounds.bottom - rect.bottom
                             );
                             dimPaint.setColor(0x66000000);
                             canvas.drawRoundRect(AndroidUtilities.rectTmp, r, r, dimPaint);

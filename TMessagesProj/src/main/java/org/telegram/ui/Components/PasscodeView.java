@@ -688,7 +688,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         checkImage.setScaleType(ImageView.ScaleType.CENTER);
         checkImage.setBackgroundResource(R.drawable.bar_selector_lock);
         passwordFrameLayout.addView(checkImage, LayoutHelper.createFrame(BUTTON_SIZE, BUTTON_SIZE, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 10, 4));
-        checkImage.setContentDescription(LocaleController.getString("Done", R.string.Done));
+        checkImage.setContentDescription(LocaleController.getString(R.string.Done));
         checkImage.setOnClickListener(v -> processDone(false));
 
         fingerprintImage = new ImageView(context);
@@ -696,7 +696,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         fingerprintImage.setScaleType(ImageView.ScaleType.CENTER);
         fingerprintImage.setBackgroundResource(R.drawable.bar_selector_lock);
         passwordFrameLayout.addView(fingerprintImage, LayoutHelper.createFrame(BUTTON_SIZE, BUTTON_SIZE, Gravity.BOTTOM | Gravity.LEFT, 10, 0, 0, 4));
-        fingerprintImage.setContentDescription(LocaleController.getString("AccDescrFingerprint", R.string.AccDescrFingerprint));
+        fingerprintImage.setContentDescription(LocaleController.getString(R.string.AccDescrFingerprint));
         fingerprintImage.setOnClickListener(v -> checkFingerprint());
 
         border = new View(context);
@@ -1184,7 +1184,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         if (Build.VERSION.SDK_INT < 23) {
             return;
         }
-        Activity parentActivity = (Activity) getContext();
+        Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (parentActivity != null && fingerprintView.getVisibility() == VISIBLE && !ApplicationLoader.mainInterfacePaused && (!(parentActivity instanceof LaunchActivity) || ((LaunchActivity) parentActivity).allowShowFingerprintDialog(this))) {
             try {
                 if (BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS && FingerprintController.isKeyReady() && !FingerprintController.checkDeviceFingerprintsChanged()) {
@@ -1227,7 +1227,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     private boolean hasFingerprint() {
-        Activity parentActivity = (Activity) getContext();
+        Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (Build.VERSION.SDK_INT >= 23 && parentActivity != null && SharedConfig.useFingerprintLock) {
             try {
                 FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
@@ -1241,7 +1241,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
 
     private void checkFingerprintButton() {
         boolean hasFingerprint = false;
-        Activity parentActivity = (Activity) getContext();
+        Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (Build.VERSION.SDK_INT >= 23 && parentActivity != null && SharedConfig.useFingerprintLock) {
             try {
                 FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
@@ -1267,7 +1267,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
     public void onShow(boolean fingerprint, boolean animated, int x, int y, Runnable onShow, Runnable onStart) {
         checkFingerprintButton();
         checkRetryTextView();
-        Activity parentActivity = (Activity) getContext();
+        Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (SharedConfig.passcodeType == SharedConfig.PASSCODE_TYPE_PASSWORD) {
             if (!animated && retryTextView.getVisibility() != VISIBLE && passwordEditText != null) {
                 passwordEditText.requestFocus();
@@ -1278,7 +1278,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
                 View currentFocus = parentActivity.getCurrentFocus();
                 if (currentFocus != null) {
                     currentFocus.clearFocus();
-                    AndroidUtilities.hideKeyboard(((Activity) getContext()).getCurrentFocus());
+                    AndroidUtilities.hideKeyboard(parentActivity.getCurrentFocus());
                 }
             }
         }

@@ -187,11 +187,11 @@ public class QuoteSpan implements LeadingMarginSpan {
         final QuoteSpan quoteSpan = styleSpan.span = new QuoteSpan(true, collapsed, styleSpan);
         quoteSpan.start = start;
         quoteSpan.end = end;
-        editable.setSpan(quoteSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        editable.setSpan(styleSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        editable.setSpan(quoteSpan, Utilities.clamp(start, editable.length(), 0), Utilities.clamp(end, editable.length(), 0), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        editable.setSpan(styleSpan, Utilities.clamp(start, editable.length(), 0), Utilities.clamp(end, editable.length(), 0), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-        editable.insert(end, "\uFEFF");
-        editable.delete(end, end + 1);
+        editable.insert(Utilities.clamp(end, editable.length(), 0), "\uFEFF");
+        editable.delete(Utilities.clamp(end, editable.length(), 0), Utilities.clamp(end + 1, editable.length(), 0));
 
         return selectEnd;
     }
@@ -244,7 +244,7 @@ public class QuoteSpan implements LeadingMarginSpan {
 
                 if (spannable instanceof SpannableStringBuilder) {
                     SpannableStringBuilder ssb = (SpannableStringBuilder) spannable;
-                    final boolean hasPad = ssb.charAt(block.span.end - 1) == '\n';
+                    final boolean hasPad = block.span.end - 1 >= 0 && ssb.charAt(block.span.end - 1) == '\n';
                     final boolean needsPad = block.hasButton() && block.span.end - 2 >= 0 && layout.getLineRight(layout.getLineForOffset(block.span.end - 1)) - dp(12) > block.width - block.buttonWidth();
                     if (hasPad != needsPad) {
                         int newEnd = block.span.end;
