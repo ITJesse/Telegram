@@ -2,9 +2,11 @@ package org.telegram.ui.Stars;
 
 import static org.telegram.messenger.AndroidUtilities.REPLACING_TAG_TYPE_LINK_NBSP;
 import static org.telegram.messenger.AndroidUtilities.dp;
+import static org.telegram.messenger.LocaleController.formatPluralStringComma;
 import static org.telegram.messenger.LocaleController.formatString;
 import static org.telegram.messenger.LocaleController.getString;
 import static org.telegram.ui.ChannelMonetizationLayout.replaceTON;
+import static org.telegram.ui.ChatEditActivity.applyNewSpan;
 
 import android.app.Activity;
 import android.content.Context;
@@ -49,6 +51,7 @@ import org.telegram.messenger.browser.Browser;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.tgnet.tl.TL_account;
 import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.tgnet.tl.TL_stats;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -75,6 +78,8 @@ import org.telegram.ui.StatisticActivity;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.TwoStepVerificationActivity;
 import org.telegram.ui.TwoStepVerificationSetupActivity;
+import org.telegram.ui.bots.AffiliateProgramFragment;
+import org.telegram.ui.bots.ChannelAffiliateProgramsFragment;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -88,6 +93,7 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
 
     public final int type;
     public final long bot_id;
+    public final boolean self;
 
     private ChatAvatarContainer avatarContainer;
     private UniversalRecyclerView listView;
@@ -134,15 +140,18 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
     public BotStarsActivity(int type, long botId) {
         this.type = type;
         this.bot_id = botId;
+        this.self = botId == getUserConfig().getClientUserId();
 
         if (type == TYPE_STARS) {
             BotStarsController.getInstance(currentAccount).preloadStarsStats(bot_id);
-            BotStarsController.getInstance(currentAccount).invalidateTransactions(bot_id, true);
+            if (!self) {
+                BotStarsController.getInstance(currentAccount).invalidateTransactions(bot_id, true);
+            }
         } else if (type == TYPE_TON) {
             BotStarsController.getInstance(currentAccount).preloadTonStats(bot_id);
         }
 
-        withdrawInfo = AndroidUtilities.replaceArrows(AndroidUtilities.replaceSingleTag(getString(R.string.BotStarsWithdrawInfo), () -> {
+        withdrawInfo = AndroidUtilities.replaceArrows(AndroidUtilities.replaceSingleTag(self ? formatPluralStringComma("SelfStarsWithdrawInfo", (int) getMessagesController().starsRevenueWithdrawalMin) : getString(R.string.BotStarsWithdrawInfo), () -> {
             Browser.openUrl(getContext(), getString(R.string.BotStarsWithdrawInfoLink));
         }), true);
     }
@@ -329,8 +338,10 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
         });
 
         balanceButtonsLayout.addView(balanceButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 1, Gravity.FILL));
-        balanceButtonsLayout.addView(new Space(context), LayoutHelper.createLinear(8, 48, 0, Gravity.FILL));
-        balanceButtonsLayout.addView(adsButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 1, Gravity.FILL));
+        if (!self) {
+            balanceButtonsLayout.addView(new Space(context), LayoutHelper.createLinear(8, 48, 0, Gravity.FILL));
+            balanceButtonsLayout.addView(adsButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 1, Gravity.FILL));
+        }
         balanceLayout.addView(balanceButtonsLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP | Gravity.FILL_HORIZONTAL, 18, 13, 18, 0));
 
         tonBalanceLayout = new LinearLayout(context) {
@@ -384,7 +395,7 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
         listView.setOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                if (!listView.canScrollVertically(1) || isLoadingVisible()) {
+                if (type == TYPE_TON && (!listView.canScrollVertically(1) || isLoadingVisible())) {
                     loadTonTransactions();
                 }
             }
@@ -439,6 +450,7 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
     }
 
     private final int BALANCE = 1;
+    private final int BUTTON_AFFILIATE = 2;
 
     private CharSequence titleInfo;
     private CharSequence proceedsInfo;
@@ -455,15 +467,24 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asBlackHeader(getString(R.string.BotStarsOverview)));
             TLRPC.TL_payments_starsRevenueStats stats = s.getStarsRevenueStats(bot_id);
             if (stats != null && stats.status != null) {
-                availableValue.crypto_amount = stats.status.available_balance;
+                availableValue.contains1 = false;
+                availableValue.contains2 = true;
+                availableValue.crypto_amount2 = stats.status.available_balance;
+                availableValue.crypto_currency2 = "XTR";
                 availableValue.currency = "USD";
-                availableValue.amount = (long) (stats.status.available_balance * rate * 100.0);
-                totalValue.crypto_amount = stats.status.current_balance;
+                availableValue.amount2 = (long) (stats.status.available_balance.amount * rate * 100.0);
+                totalValue.contains1 = false;
+                totalValue.contains2 = true;
+                totalValue.crypto_amount2 = stats.status.current_balance;
+                totalValue.crypto_currency2 = "XTR";
+                totalValue.amount2 = (long) (stats.status.current_balance.amount * rate * 100.0);
                 totalValue.currency = "USD";
-                totalValue.amount = (long) (stats.status.current_balance * rate * 100.0);
-                totalProceedsValue.crypto_amount = stats.status.overall_revenue;
+                totalProceedsValue.contains1 = false;
+                totalProceedsValue.contains2 = true;
+                totalProceedsValue.crypto_amount2 = stats.status.overall_revenue;
+                totalProceedsValue.crypto_currency2 = "XTR";
+                totalProceedsValue.amount2 = (long) (stats.status.overall_revenue.amount * rate * 100.0);
                 totalProceedsValue.currency = "USD";
-                totalProceedsValue.amount = (long) (stats.status.overall_revenue * rate * 100.0);
                 setStarsBalance(stats.status.available_balance, stats.status.next_withdrawal_at);
 
                 balanceButtonsLayout.setVisibility(stats.status.withdrawal_enabled ? View.VISIBLE : View.GONE);
@@ -471,11 +492,17 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asProceedOverview(availableValue));
             items.add(UItem.asProceedOverview(totalValue));
             items.add(UItem.asProceedOverview(totalProceedsValue));
-            items.add(UItem.asShadow(-2, getString(R.string.BotStarsOverviewInfo)));
+            items.add(UItem.asShadow(-2, getString(self ? R.string.SelfStarsOverviewInfo : R.string.BotStarsOverviewInfo)));
             items.add(UItem.asBlackHeader(getString(R.string.BotStarsAvailableBalance)));
             items.add(UItem.asCustom(BALANCE, balanceLayout));
             items.add(UItem.asShadow(-3, withdrawInfo));
-            items.add(UItem.asFullscreenCustom(transactionsLayout, 0));
+            if (!self) {
+                if (getMessagesController().starrefConnectAllowed) {
+                    items.add(AffiliateProgramFragment.ColorfulTextCell.Factory.as(BUTTON_AFFILIATE, Theme.getColor(Theme.key_color_green, resourceProvider), R.drawable.filled_earn_stars, applyNewSpan(getString(R.string.BotAffiliateProgramRowTitle)), getString(R.string.BotAffiliateProgramRowText)));
+                    items.add(UItem.asShadow(-4, null));
+                }
+                items.add(UItem.asFullscreenCustom(transactionsLayout, 0));
+            }
         } else if (type == TYPE_TON) {
             TL_stats.TL_broadcastRevenueStats stats = s.getTONRevenueStats(bot_id, true);
             if (titleInfo == null) {
@@ -600,14 +627,16 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
             StarsIntroActivity.showTransactionSheet(getContext(), true, bot_id, currentAccount, t, getResourceProvider());
         } else if (item.object instanceof TL_stats.BroadcastRevenueTransaction) {
             ChannelMonetizationLayout.showTransactionSheet(getContext(), currentAccount, (TL_stats.BroadcastRevenueTransaction) item.object, bot_id, resourceProvider);
+        } else if (item.id == BUTTON_AFFILIATE) {
+            presentFragment(new ChannelAffiliateProgramsFragment(bot_id));
         }
     }
 
-    private void setStarsBalance(long crypto_amount, int blockedUntil) {
+    private void setStarsBalance(TL_stars.StarsAmount crypto_amount, int blockedUntil) {
         if (balanceTitle == null || balanceSubtitle == null)
             return;
-        long amount = (long) (rate * crypto_amount * 100.0);
-        SpannableStringBuilder ssb = new SpannableStringBuilder(StarsIntroActivity.replaceStarsWithPlain("XTR " + LocaleController.formatNumber(crypto_amount, ' '), 1f));
+        long amount = (long) (rate * crypto_amount.amount * 100.0);
+        SpannableStringBuilder ssb = new SpannableStringBuilder(StarsIntroActivity.replaceStarsWithPlain(TextUtils.concat("XTR ", StarsIntroActivity.formatStarsAmount(crypto_amount, 0.8f, ' ')), 1f));
         int index = TextUtils.indexOf(ssb, ".");
         if (index >= 0) {
             ssb.setSpan(balanceTitleSizeSpan, index, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -617,7 +646,7 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
         balanceEditTextContainer.setVisibility(amount > 0 ? View.VISIBLE : View.GONE);
         if (balanceEditTextAll) {
             balanceEditTextIgnore = true;
-            balanceEditText.setText(Long.toString(balanceEditTextValue = crypto_amount));
+            balanceEditText.setText(Long.toString(balanceEditTextValue = crypto_amount.amount));
             balanceEditText.setSelection(balanceEditText.getText().length());
             balanceEditTextIgnore = false;
 
@@ -978,10 +1007,10 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
                         showDialog(builder.create());
                     }
                 } else if ("SRP_ID_INVALID".equals(error.text)) {
-                    TLRPC.TL_account_getPassword getPasswordReq = new TLRPC.TL_account_getPassword();
+                    TL_account.getPassword getPasswordReq = new TL_account.getPassword();
                     ConnectionsManager.getInstance(currentAccount).sendRequest(getPasswordReq, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
                         if (error2 == null) {
-                            TLRPC.account_Password currentPassword = (TLRPC.account_Password) response2;
+                            TL_account.Password currentPassword = (TL_account.Password) response2;
                             passwordFragment.setCurrentPasswordInfo(null, currentPassword);
                             TwoStepVerificationActivity.initPasswordNewAlgo(currentPassword);
                             initWithdraw(stars, stars_amount, passwordFragment.getNewSrpPassword(), passwordFragment);
@@ -998,134 +1027,12 @@ public class BotStarsActivity extends BaseFragment implements NotificationCenter
                 passwordFragment.needHideProgress();
                 passwordFragment.finishFragment();
                 if (response instanceof TL_stats.TL_broadcastRevenueWithdrawalUrl) {
-                    Browser.openUrl(getContext(), ((TL_stats.TL_broadcastRevenueWithdrawalUrl) response).url);
+                    Browser.openUrlInSystemBrowser(getContext(), ((TL_stats.TL_broadcastRevenueWithdrawalUrl) response).url);
                 } else if (response instanceof TLRPC.TL_payments_starsRevenueWithdrawalUrl) {
                     balanceEditTextAll = true;
-                    Browser.openUrl(getContext(), ((TLRPC.TL_payments_starsRevenueWithdrawalUrl) response).url);
+                    Browser.openUrlInSystemBrowser(getContext(), ((TLRPC.TL_payments_starsRevenueWithdrawalUrl) response).url);
                 }
             }
         }));
     }
-
-
-    private void initWithdraw(long stars, TLRPC.InputCheckPasswordSRP password, TwoStepVerificationActivity passwordFragment) {
-        Activity parentActivity = getParentActivity();
-        TLRPC.User currentUser = UserConfig.getInstance(currentAccount).getCurrentUser();
-        if (parentActivity == null || currentUser == null) return;
-
-        TLRPC.TL_payments_getStarsRevenueWithdrawalUrl req = new TLRPC.TL_payments_getStarsRevenueWithdrawalUrl();
-        req.peer = MessagesController.getInstance(currentAccount).getInputPeer(bot_id);
-        req.stars = stars;
-        req.password = password != null ? password : new TLRPC.TL_inputCheckPasswordEmpty();
-        ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
-            if (error != null) {
-                if ("PASSWORD_MISSING".equals(error.text) || error.text.startsWith("PASSWORD_TOO_FRESH_") || error.text.startsWith("SESSION_TOO_FRESH_")) {
-                    if (passwordFragment != null) {
-                        passwordFragment.needHideProgress();
-                    }
-                    AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity);
-                    builder.setTitle(LocaleController.getString(R.string.EditAdminTransferAlertTitle));
-
-                    LinearLayout linearLayout = new LinearLayout(parentActivity);
-                    linearLayout.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(2), AndroidUtilities.dp(24), 0);
-                    linearLayout.setOrientation(LinearLayout.VERTICAL);
-                    builder.setView(linearLayout);
-
-                    TextView messageTextView = new TextView(parentActivity);
-                    messageTextView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-                    messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-                    messageTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-                    messageTextView.setText(AndroidUtilities.replaceTags(LocaleController.getString(R.string.WithdrawChannelAlertText)));
-                    linearLayout.addView(messageTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-                    LinearLayout linearLayout2 = new LinearLayout(parentActivity);
-                    linearLayout2.setOrientation(LinearLayout.HORIZONTAL);
-                    linearLayout.addView(linearLayout2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 11, 0, 0));
-
-                    ImageView dotImageView = new ImageView(parentActivity);
-                    dotImageView.setImageResource(R.drawable.list_circle);
-                    dotImageView.setPadding(LocaleController.isRTL ? AndroidUtilities.dp(11) : 0, AndroidUtilities.dp(9), LocaleController.isRTL ? 0 : AndroidUtilities.dp(11), 0);
-                    dotImageView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogTextBlack), PorterDuff.Mode.MULTIPLY));
-
-                    messageTextView = new TextView(parentActivity);
-                    messageTextView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-                    messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-                    messageTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-                    messageTextView.setText(AndroidUtilities.replaceTags(LocaleController.getString(R.string.EditAdminTransferAlertText1)));
-                    if (LocaleController.isRTL) {
-                        linearLayout2.addView(messageTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-                        linearLayout2.addView(dotImageView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT));
-                    } else {
-                        linearLayout2.addView(dotImageView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-                        linearLayout2.addView(messageTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-                    }
-
-                    linearLayout2 = new LinearLayout(parentActivity);
-                    linearLayout2.setOrientation(LinearLayout.HORIZONTAL);
-                    linearLayout.addView(linearLayout2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 11, 0, 0));
-
-                    dotImageView = new ImageView(parentActivity);
-                    dotImageView.setImageResource(R.drawable.list_circle);
-                    dotImageView.setPadding(LocaleController.isRTL ? AndroidUtilities.dp(11) : 0, AndroidUtilities.dp(9), LocaleController.isRTL ? 0 : AndroidUtilities.dp(11), 0);
-                    dotImageView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogTextBlack), PorterDuff.Mode.MULTIPLY));
-
-                    messageTextView = new TextView(parentActivity);
-                    messageTextView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-                    messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-                    messageTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-                    messageTextView.setText(AndroidUtilities.replaceTags(LocaleController.getString(R.string.EditAdminTransferAlertText2)));
-                    if (LocaleController.isRTL) {
-                        linearLayout2.addView(messageTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-                        linearLayout2.addView(dotImageView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT));
-                    } else {
-                        linearLayout2.addView(dotImageView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-                        linearLayout2.addView(messageTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-                    }
-
-                    if ("PASSWORD_MISSING".equals(error.text)) {
-                        builder.setPositiveButton(LocaleController.getString(R.string.EditAdminTransferSetPassword), (dialogInterface, i) -> presentFragment(new TwoStepVerificationSetupActivity(TwoStepVerificationSetupActivity.TYPE_INTRO, null)));
-                        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-                    } else {
-                        messageTextView = new TextView(parentActivity);
-                        messageTextView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-                        messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-                        messageTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-                        messageTextView.setText(LocaleController.getString(R.string.EditAdminTransferAlertText3));
-                        linearLayout.addView(messageTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 11, 0, 0));
-
-                        builder.setNegativeButton(LocaleController.getString(R.string.OK), null);
-                    }
-                    if (passwordFragment != null) {
-                        passwordFragment.showDialog(builder.create());
-                    } else {
-                        showDialog(builder.create());
-                    }
-                } else if ("SRP_ID_INVALID".equals(error.text)) {
-                    TLRPC.TL_account_getPassword getPasswordReq = new TLRPC.TL_account_getPassword();
-                    ConnectionsManager.getInstance(currentAccount).sendRequest(getPasswordReq, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
-                        if (error2 == null) {
-                            TLRPC.account_Password currentPassword = (TLRPC.account_Password) response2;
-                            passwordFragment.setCurrentPasswordInfo(null, currentPassword);
-                            TwoStepVerificationActivity.initPasswordNewAlgo(currentPassword);
-                            initWithdraw(stars, passwordFragment.getNewSrpPassword(), passwordFragment);
-                        }
-                    }), ConnectionsManager.RequestFlagWithoutLogin);
-                } else {
-                    if (passwordFragment != null) {
-                        passwordFragment.needHideProgress();
-                        passwordFragment.finishFragment();
-                    }
-                    BulletinFactory.showError(error);
-                }
-            } else {
-                passwordFragment.needHideProgress();
-                passwordFragment.finishFragment();
-                if (response instanceof TLRPC.TL_payments_starsRevenueWithdrawalUrl) {
-                    balanceEditTextAll = true;
-                    Browser.openUrl(getContext(), ((TLRPC.TL_payments_starsRevenueWithdrawalUrl) response).url);
-                }
-            }
-        }));
-    }
-
 }

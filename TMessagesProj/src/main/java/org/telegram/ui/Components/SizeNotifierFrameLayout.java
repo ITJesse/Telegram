@@ -72,6 +72,7 @@ public class SizeNotifierFrameLayout extends FrameLayout {
     protected int keyboardHeight;
     private int bottomClip;
     protected SizeNotifierFrameLayoutDelegate delegate;
+    protected final ArrayList<SizeNotifierFrameLayoutDelegate> delegates = new ArrayList<>();
     private boolean occupyStatusBar = true;
     private WallpaperParallaxEffect parallaxEffect;
     private float translationX;
@@ -409,6 +410,13 @@ public class SizeNotifierFrameLayout extends FrameLayout {
     public void setDelegate(SizeNotifierFrameLayoutDelegate delegate) {
         this.delegate = delegate;
     }
+    public void addDelegate(SizeNotifierFrameLayoutDelegate delegate) {
+        this.delegates.add(delegate);
+    }
+    public void removeDelegate(SizeNotifierFrameLayoutDelegate delegate) {
+        this.delegates.remove(delegate);
+    }
+
 
     public void setOccupyStatusBar(boolean value) {
         occupyStatusBar = value;
@@ -452,12 +460,15 @@ public class SizeNotifierFrameLayout extends FrameLayout {
         if (parallaxEffect != null) {
             parallaxScale = parallaxEffect.getScale(getMeasuredWidth(), getMeasuredHeight());
         }
-        if (delegate != null) {
+        if (delegate != null || !delegates.isEmpty()) {
             keyboardHeight = measureKeyboardHeight();
             final boolean isWidthGreater = AndroidUtilities.displaySize.x > AndroidUtilities.displaySize.y;
             post(() -> {
                 if (delegate != null) {
                     delegate.onSizeChanged(keyboardHeight, isWidthGreater);
+                }
+                for (int i = 0; i < delegates.size(); ++i) {
+                    delegates.get(i).onSizeChanged(keyboardHeight, isWidthGreater);
                 }
             });
         }
@@ -929,7 +940,7 @@ public class SizeNotifierFrameLayout extends FrameLayout {
     }
 
     public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
-        int blurAlpha = Color.alpha(Theme.getColor(DRAW_USING_RENDERNODE() && SharedConfig.getDevicePerformanceClass() == SharedConfig.PERFORMANCE_CLASS_HIGH ? Theme.key_chat_BlurAlpha : Theme.key_chat_BlurAlphaSlow));
+        int blurAlpha = Color.alpha(Theme.getColor(DRAW_USING_RENDERNODE() && SharedConfig.getDevicePerformanceClass() == SharedConfig.PERFORMANCE_CLASS_HIGH ? Theme.key_chat_BlurAlpha : Theme.key_chat_BlurAlphaSlow, getResourceProvider()));
         if (!SharedConfig.chatBlurEnabled()) {
             canvas.drawRect(rectTmp, blurScrimPaint);
             return;
